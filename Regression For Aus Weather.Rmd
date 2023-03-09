@@ -1,0 +1,195 @@
+---
+pdf_document: default
+author: "Tyler Echols"
+date: "7/10/2022"
+output:
+  word_document: default
+  pdf_document: default
+html_document:
+  df_print: paged
+title: "Regression for AUS Weather"
+---
+
+Regression Data Set location : https://www.kaggle.com/datasets/jsphyg/weather-dataset-rattle-package?datasetId=6012&language=R
+
+We are looking at data for the predicted weather in Australia 
+
+```{r}
+# Loading in the data  
+
+WA <- read.csv("weatherAUS.csv")
+
+# How many Row's are in the data set 
+nrow(WA)
+
+head(WA)
+
+colnames(WA)
+
+str(WA)
+```
+
+```{r}
+# Data Cleaning
+WA$Location <- NULL
+WA$Date <- NULL
+
+WA$RainTomorrow[WA$RainTomorrow == "Yes"] <- TRUE
+WA$RainTomorrow[WA$RainTomorrow == "No"] <- FALSE
+
+WA$RainToday[WA$RainToday == "Yes"] <- TRUE
+WA$RainToday[WA$RainToday == "No"] <- FALSE
+
+for (x in 1:ncol(WA)){
+    if(is.character(WA[1,x])){
+      WA[,x] <- factor(WA[,x])
+    } # convert to numeric
+    if(!is.numeric(WA[1,x])) {
+      WA[,x] <- as.integer(WA[,x])
+    }
+}
+names(WA)
+str(WA)
+
+
+```
+
+```{r}
+# Data Exploration/Data Visulation 
+dim (WA) #dimensions
+
+names (WA) #the attributes
+
+str(WA) #structure of the data set
+
+attributes(WA) #the names that will be displayed
+
+head(WA) #lists out the 1st 6 entries
+
+```
+
+```{r}
+# Graphs 
+par(mfrow=c(1,2))
+
+plot(WA$Rainfall~WA$Humidity9am, main="The Ammout of Rain Vs The Humidity at 9am")
+
+plot(WA$Rainfall~WA$Humidity3pm, main="The Ammout of Rain Vs The Humidity at 3pm")
+
+plot(WA$Rainfall~WA$MaxTemp, main="The Ammount of Rain vs The Highest Temp")
+
+plot(WA$Rainfall~WA$MinTemp, main="The Ammount of Rain vs The Lowest Temp")
+```
+
+```{r}
+# Train and Test Split
+set.seed(1234)
+
+x <- sample(1:nrow(WA), nrow(WA)*0.75, replace=FALSE)
+
+train <- WA[x,]
+
+test <- WA[-x,]
+
+nrow(train) # this is the size of train data when split 
+nrow(test) # this is the size of test data when split 
+
+
+# Decision Tree algorithm for Rainfall 
+
+library(rpart)
+tree1 <- rpart(Rainfall~.- Pressure3pm - Pressure9am - WindDir3pm - 
+    WindDir9am - WindGustDir, method="anova", data=train)
+summary(tree1)
+
+pred.tree <- predict(tree1, newdata=test)
+cor.tree <- cor(pred.tree, test$Rainfall)
+print(paste("cor: ", cor.tree))
+mse.tree <- mean((pred.tree - test$Rainfall))
+print(paste("mse: ", mse.tree))
+plot(tree1, uniform=TRUE, main="Decision Tree of Rainfall using Regression")
+text(tree1, cex=0.5, pretty=0)
+
+```
+
+
+
+
+
+```{r}
+# Linear Regression for Rainfall 
+
+# Attempt 1 
+lm1 <- lm(Rainfall~., data=train)
+summary(lm1)
+
+mse <- mean(lm1$residuals^2)
+print(mse)
+
+rmse <- sqrt(mse)
+print(rmse)
+```
+
+
+
+```{r}
+# Attempt 2: hopefully this one will yield better results 
+lm2 <- lm(Rainfall~. - Pressure3pm-Pressure9am-WindDir3pm-WindDir9am-WindGustDir, data=train)
+summary(lm2)
+
+mse2 <- mean(lm2$residuals^2)
+print(mse2)
+
+rmse2 <- sqrt(mse2)
+print(rmse2)
+
+```
+
+
+```{r}
+anova(lm1, lm2)
+```
+
+```{r}
+# Predicting rain fall with the test Data 
+
+lm.pred <- predict(lm2, newdata = test)
+lm.cor <- cor(lm.pred, test$Rainfall)
+print(lm.cor)
+
+lm.mse <- mean((lm.pred - test$Rainfall)^2)
+print(lm.mse)
+
+```
+
+```{r}
+# Residual Plotting 
+par(mfrow=c(2,2))
+plot(lm2)
+
+```
+
+```{r}
+
+#kNN 
+
+
+library(caret)
+predictors <- c("MinTemp", "MaxTemp", "Evaporation", "Sunshine", "WindGustSpeed", "WindSpeed9am", "WindSpeed3pm", "Humidity9am", "Humidity3pm", "Cloud9am", "Cloud3pm", "Temp9am", "Temp3pm", "RainToday", "RainTomorrow")
+
+knn1 <- knnreg(train[,predictors], train$Rainfall, k=3)
+
+# knn.pred <- predict(knn1, test[,predictors])
+
+# cor.knn1 <- cor(knn.pred, test$Rainfall)
+
+# mse.knn1 <- mean((knn.pred - test$Rainfall)^2)
+
+# print(paste("cor: ", cor.knn1))
+# print(paste("mse: ", mse.knn1))
+```
+
+What Did I Learn:
+
+The importance of data cleaning for a data set such as this one is important. Any slight amount of data inconsistencies could result in a very in accurate. This data set could have been more accurate. And apparently there is a limit to what is readable in certain algorithms to where no matter you take away Variables there are some algorithms that will not be able to calculate a variable, needed to post results or do proper calculations.    
+

@@ -1,0 +1,214 @@
+---
+title: "Classification of Heart Disease Indicator"
+author: "Tyler Echols"
+date: "7/10/2022"
+output:
+  word_document: default
+html_document:
+  df_print: paged
+pdf_document: default
+---
+
+Classification: https://www.kaggle.com/datasets/kamilpytlak/personal-key-indicators-of-heart-disease
+
+We are looking at data of calculating the chance of people with heart disease. 
+
+```{r}
+# Reading in the CSV file and displaying the data 
+HDI <- read.csv("heart_2020.csv")
+head(HDI)
+nrow(HDI)
+
+```
+
+```{r}
+# More data read-in varaibles
+str(HDI)
+table(HDI$HeartDisease)
+
+yes <- which(HDI$HeartDisease == "Yes")
+no <- which(HDI$HeartDisease == "No")
+
+length(yes)
+length(no) 
+
+no_downsample <- sample(no, length(yes))
+HDI <- HDI[c(no_downsample, yes),]
+
+str(HDI)
+
+yes <- which(HDI$HeartDisease == "Yes")
+no <- which(HDI$HeartDisease == "No")
+length(yes) 
+length(no)
+```
+
+```{r}
+# Converting variables into factors, getting rid of unbalance Variables 
+HDI$AgeCategory[HDI$AgeCategory == "18-24"] <- 0
+HDI$AgeCategory[HDI$AgeCategory == "25-29"] <- 1
+HDI$AgeCategory[HDI$AgeCategory == "30-34"] <- 2
+HDI$AgeCategory[HDI$AgeCategory == "35-39"] <- 3
+HDI$AgeCategory[HDI$AgeCategory == "40-44"] <- 4
+HDI$AgeCategory[HDI$AgeCategory == "45-49"] <- 5
+HDI$AgeCategory[HDI$AgeCategory == "50-54"] <- 6
+HDI$AgeCategory[HDI$AgeCategory == "55-59"] <- 7
+HDI$AgeCategory[HDI$AgeCategory == "60=64"] <- 8
+HDI$AgeCategory[HDI$AgeCategory == "65-69"] <- 9
+HDI$AgeCategory[HDI$AgeCategory == "70-74"] <- 10
+HDI$AgeCategory[HDI$AgeCategory == "75-79"] <- 11
+HDI$AgeCategory[HDI$AgeCategory == "80 or older"] <- 12
+HDI$AgeCategory <- as.factor(HDI$AgeCategory)
+
+HDI$Diabetic[HDI$Diabetic == "Yes"] <- TRUE
+HDI$Diabetic[HDI$Diabetic == "No"] <- FALSE
+HDI$Diabetic[HDI$Diabetic == "Yes (during pregnancy)"] <- FALSE
+HDI$Diabetic[HDI$Diabetic == "No, borderline diabetes"] <- TRUE
+HDI$Diabetic <- as.factor(HDI$Diabetic)
+
+HDI$DiffWalking[HDI$DiffWalking == "Yes"] <- TRUE
+HDI$DiffWalking[HDI$DiffWalking == "No"] <- FALSE
+HDI$DiffWalking <- as.factor(HDI$DiffWalking)
+
+
+HDI$GenHealth[HDI$GenHealth == "Poor"] <- 0
+HDI$GenHealth[HDI$GenHealth == "Fair"] <- 1
+HDI$GenHealth[HDI$GenHealth == "Good"] <- 2
+HDI$GenHealth[HDI$GenHealth == "Very good"] <- 3
+HDI$GenHealth[HDI$GenHealth == "Excellent"] <- 4
+HDI$GenHealth <- as.factor(HDI$GenHealth)
+HDI$GenHealth <- as.factor(HDI$GenHealth)
+
+
+HDI$PhysicalActivity[HDI$PhysicalActivity == "Yes"] <- TRUE
+HDI$PhysicalActivity[HDI$PhysicalActivity == "No"] <- FALSE
+HDI$PhysicalActivity <- as.factor(HDI$PhysicalActivity)
+
+HDI$Sex[HDI$Sex == "Male"] <- 0
+HDI$Sex[HDI$Sex == "Female"] <- 1
+HDI$Sex <- as.factor(HDI$Sex) # seems good
+
+HDI$Smoking[HDI$Smoking == "Yes"] <- TRUE
+HDI$Smoking[HDI$Smoking == "No"] <- FALSE
+HDI$Smoking <- as.factor(HDI$Smoking) # seems good
+
+HDI$AlcoholDrinking <- NULL
+HDI$Stroke <- NULL
+HDI$Race <- NULL
+HDI$Asthma <- NULL
+HDI$KidneyDisease <- NULL
+HDI$SkinCancer <- NULL
+HDI$MentalHealth <- NULL
+
+colnames(HDI)[which(names(HDI) == "PhysicalHealth")] <- "InjuryRate"
+
+names(HDI)
+```
+
+```{r}
+# Graphs 
+summary(HDI)
+str(HDI)
+
+HDI$HeartDisease[HDI$HeartDisease == "Yes"] <- TRUE
+HDI$HeartDisease[HDI$HeartDisease == "No"] <- FALSE
+HDI$HeartDisease <- as.factor(HDI$HeartDisease)
+
+par(mfrow=c(1,2))
+plot(HDI$HeartDisease,HDI$BMI, main="BMI", ylab="", varwidth=TRUE)
+plot(HDI$HeartDisease,HDI$InjuryRate, main="Rate of Injury ", ylab="", varwidth=TRUE)
+```
+
+```{r}
+# Train and test Split 
+set.seed(1234)
+
+x <- sample(1:nrow(HDI), nrow(HDI)*0.75, replace=FALSE)
+train <- HDI[x,]
+test <- HDI[-x,]
+nrow(train)
+nrow(test) 
+```
+
+```{r}
+# Naive Bayes
+library(e1071)
+nb1 <- naiveBayes(HeartDisease~., data=train) 
+nb1
+
+nb.pred <- predict(nb1, newdata=test, type="class")
+table(nb.pred, test$HeartDisease) 
+nb.acc <- mean(nb.pred == test$HeartDisease)
+print(paste("Accuracy: ", nb.acc))
+```
+
+```{r}
+# kNN 
+
+library(class)
+
+for (x in 1:ncol(HDI)){
+    if(!is.numeric(HDI[1,x])) {
+      HDI[,x] <- as.integer(HDI[,x])
+    }
+}
+
+predictors <- c("BMI", "Smoking", "InjuryRate", "DiffWalking", "Sex", "AgeCategory", "Diabetic", "PhysicalActivity", "GenHealth", "SleepTime")
+
+normalize <- function(x) { (x - min(x))/(max(x) - min(x))}
+HDI_normalized <- as.data.frame(lapply(HDI[,predictors], normalize))
+summary(HDI_normalized)
+```
+
+```{r}
+set.seed(1234)
+x <- sample(1:nrow(HDI_normalized), nrow(HDI_normalized)*0.75, replace=FALSE)
+train <- HDI_normalized[x,]
+test <- HDI_normalized[-x,]
+
+train.labels <- HDI[x,"HeartDisease"] 
+test.labels <- HDI[-x,"HeartDisease"]
+
+knn.pred <- knn(train, test, cl=train.labels, k=9) 
+results <- knn.pred == test.labels
+knn.acc <- length(which(results == TRUE)) / length(results)
+print(paste("Accuracy: ", knn.acc))
+table(results, knn.pred)
+
+```
+
+```{r}
+#Train and test part 2
+x <- sample(1:nrow(HDI), nrow(HDI)*0.75, replace=FALSE)
+train <- HDI[x,]
+test <- HDI[-x,]
+nrow(train) 
+nrow(test)
+```
+
+```{r}
+# Logic Regression 
+# glm1 <- glm(HeartDisease~., data=train, family=binomial)
+# summary(glm1)
+
+# glm2 <- glm(HeartDisease~Smoking+BMI+InjuryRate+Diabetic+GenHealth,data=train, family="binomial")
+# summary(glm2)
+
+# glm3 <- glm(HeartDisease~.-AgeCategory-PhysicalActivity, data=train, family="binomial")
+# summary(glm3)
+
+# glmprobs <- predict(glm1, newdata=test, type="response")
+ 
+# glmpred <- rep(TRUE, nrow(test))
+# glmpred[glmprobs<0.5] <- FALSE
+
+# glmacc <- mean(glmpred == test$HeartDisease)
+# print(glmacc)
+# table(Predicted = glmpred, Actual = test$HeartDisease)
+
+
+```
+
+What Did I Learn:
+
+That some variables and some algorithms need to have multiple instances of what is needed to be calculated for. Predictors have a hard time trying to predict values that need the result of other algorithms to work.  
